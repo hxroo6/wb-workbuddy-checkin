@@ -1,12 +1,13 @@
 """积分余额模块：查询账号总积分（剩余可用），记录历史用于增量汇报。
 
-真实验证接口：POST https://www.codebuddy.cn/billing/meter/get-user-resource
-响应 data.Response.Data.Accounts[] 为各积分账户（CapacityUnit=credits）：
-  - CapacitySizePrecise  账户总额
+通过计费接口获取各积分账户（CapacityUnit=credits），字段语义：
+  - CapacitySizePrecise   账户总额
   - CapacityRemainPrecise 剩余可用
-  - CapacityUsedPrecise  已用
-  - Status               0=有效 3=过期
+  - CapacityUsedPrecise   已用
+  - Status                0=有效 3=过期
 总积分 = 所有剩余>0 账户的 CapacityRemainPrecise 之和（过期账户剩余恒为 0，自然排除）。
+
+接口路径与域名请结合客户端行为自行研究，本模块不承担接口探测说明。
 """
 import json
 import os

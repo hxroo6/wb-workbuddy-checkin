@@ -1,10 +1,9 @@
 """猫猫旅行模块（WorkBuddy 成长中心活动，自动赚积分）。
 
-真实验证接口（域名 https://www.workbuddy.cn）：
-- GET  /activity/growth/buddy/travel/status  → 状态（state: idle/traveling/finished）
-- GET  /activity/growth/buddy/travel/config  → 地点配置（时长/奖励范围）
-- POST /activity/growth/buddy/travel/depart  → 派出旅行（body: {"location_id": N}）
-- POST /activity/growth/buddy/travel/claim   → 收取奖励（body: {}）
+旅行状态机（接口路径见下方常量，域名/路径请结合客户端行为自行研究）：
+- 状态查询：state 取值 idle / traveling / arrived / finished
+- 派出旅行：随机选地点（携带地点编号）
+- 收取奖励：到点（可加随机延迟）后领取，奖励为积分
 
 流程（自动状态机）：
 - idle      → 随机选地点，派出旅行

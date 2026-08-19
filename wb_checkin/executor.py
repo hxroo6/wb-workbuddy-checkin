@@ -1,10 +1,6 @@
 """签到执行模块：调用签到接口并如实解析响应。
 
-真实验证（2026-08-12，用客户端凭证实测）：
-- POST https://www.codebuddy.cn/v2/billing/meter/checkin-status → 查询签到状态（code=0）
-- POST https://www.codebuddy.cn/v2/billing/meter/daily-checkin  → 每日签到/领取今日礼包
-  已签到时返回 HTTP 400 + {"code":10001,"msg":"今天已签到，请明天再来"}
-- POST /billing/meter/claim-gift → 404 不存在（礼包领取已合并进 daily-checkin）
+接口路径与域名请结合客户端行为自行研究，本模块不承担接口探测说明。
 
 响应判断原则（绝不编造结果）：
 - code=0 / 200 → success

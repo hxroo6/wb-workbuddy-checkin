@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-r"""WorkBuddy 账号一键添加脚本（客户端凭证自动抓取）
+r"""WorkBuddy 账号一键添加脚本（客户端凭证自动读取）
 
 用法：
     python add_account.py                      # 交互式：提示输入账号名（默认自动编号 account2/3/...）
@@ -47,7 +47,7 @@ def _guess_data_dir() -> str:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="add-account",
-        description="一键抓取 WorkBuddy 客户端登录凭证并添加账号",
+        description="一键读取 WorkBuddy 客户端登录凭证并添加账号",
     )
     parser.add_argument("name", nargs="?", default=None, help="账号名（默认自动编号）")
     parser.add_argument("--data-dir", default=None, help="数据目录（默认 ~/.wb_checkin）")
