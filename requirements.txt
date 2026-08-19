@@ -1,0 +1,10 @@
+# 依赖说明
+# 本工具默认模式（读取客户端凭证 accessToken 直连接口）只使用 Python 标准库，无需安装任何第三方包。
+# 以下为可选依赖：
+#
+#   pip install playwright && python -m playwright install chromium   # 备选"浏览器扫码登录"方案需要
+#   pip install plyer                                                 # Windows 桌面通知需要
+#
+# 如需要全部可选功能，直接：pip install -r requirements.txt
+playwright>=1.40
+plyer>=2.1

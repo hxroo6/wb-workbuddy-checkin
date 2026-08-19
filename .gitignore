@@ -1,0 +1,18 @@
+# 敏感数据：包含账号登录态与 Token，严禁提交到版本控制
+checkin_config.json
+storage/
+logs/
+.data/
+*.jsonl
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

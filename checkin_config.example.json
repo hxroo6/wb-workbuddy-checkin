@@ -1,0 +1,26 @@
+{
+  "_comment": "WorkBuddy 多账号每日积分领取 - 配置模板。复制为 checkin_config.json 后填写。实际配置默认位于 ~/.wb_checkin/checkin_config.json，可用 --data-dir 指定目录。",
+  "api_base": "https://www.codebuddy.cn",
+  "web_base": "https://www.codebuddy.cn/login/",
+  "request_timeout": 30,
+  "retry_times": 3,
+  "extra_headers": {},
+  "notify": {
+    "enabled": false,
+    "system_notify": true,
+    "pushplus_token": "",
+    "wecom_webhook_key": ""
+  },
+  "accounts": [
+    {
+      "name": "account-1",
+      "credential_file": "account-1.info",
+      "enabled": true
+    },
+    {
+      "name": "account-2",
+      "credential_file": "account-2.info",
+      "enabled": true
+    }
+  ]
+}

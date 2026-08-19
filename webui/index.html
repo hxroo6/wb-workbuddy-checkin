@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkBuddy 积分管理</title>
+<style>
+:root {
+  --bg: #f5f6f8; --card: #ffffff; --text: #1f2329; --muted: #6b7280;
+  --border: #e5e7eb; --accent: #4f6ef7; --ok: #16a34a; --warn: #d97706;
+  --fail: #dc2626; --shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171c; --card: #1e232b; --text: #e5e7eb; --muted: #9ca3af;
+    --border: #2c3340; --accent: #6d8bff; --shadow: 0 1px 3px rgba(0,0,0,.4);
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  background: var(--bg); color: var(--text); padding: 24px; line-height: 1.5;
+}
+.wrap { max-width: 980px; margin: 0 auto; }
+header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+h1 { font-size: 22px; display: flex; align-items: center; gap: 8px; }
+.meta { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.meta span { margin-right: 14px; }
+.btn {
+  border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px;
+  cursor: pointer; color: #fff; background: var(--accent); transition: opacity .15s;
+}
+.btn:hover { opacity: .85; }
+.btn.secondary { background: var(--border); color: var(--text); }
+.btn.danger { background: var(--fail); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-row { margin-left: auto; display: flex; gap: 8px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px; box-shadow: var(--shadow); position: relative;
+}
+.card .name { font-size: 16px; font-weight: 600; }
+.card .nick { color: var(--accent); font-size: 13px; margin-left: 6px; }
+.badge {
+  display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 10px; margin-left: 8px;
+}
+.badge.on { background: rgba(22,163,74,.15); color: var(--ok); }
+.badge.off { background: rgba(107,114,128,.15); color: var(--muted); }
+.row { margin-top: 8px; font-size: 13px; color: var(--muted); }
+.balance { font-size: 24px; font-weight: 700; margin-top: 10px; }
+.balance .delta { font-size: 14px; margin-left: 8px; font-weight: 600; }
+.delta.up { color: var(--ok); } .delta.down { color: var(--fail); } .delta.flat { color: var(--muted); }
+.last { margin-top: 6px; font-size: 13px; }
+.res-success, .res-already, .res-skip { color: var(--ok); }
+.res-failed { color: var(--fail); }
+.actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+.add-card {
+  display: flex; align-items: center; justify-content: center; min-height: 120px;
+  border: 2px dashed var(--border); border-radius: 12px; color: var(--muted);
+  cursor: pointer; background: transparent; font-size: 15px; transition: all .15s;
+}
+.add-card:hover { border-color: var(--accent); color: var(--accent); }
+.logs { margin-top: 24px; }
+.logs h2 { font-size: 16px; margin-bottom: 10px; }
+.log-box {
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px; max-height: 260px; overflow: auto; font-size: 12px;
+  font-family: Consolas, monospace; white-space: pre-wrap; color: var(--muted);
+}
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 18px; box-shadow: 0 4px 12px rgba(0,0,0,.15); display: none;
+  max-width: 80vw; font-size: 14px; z-index: 99;
+}
+.spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: sp 1s linear infinite; vertical-align: -2px; margin-right: 6px; }
+@keyframes sp { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🦫 WorkBuddy 积分管理</h1>
+    <div class="btn-row">
+      <button class="btn" id="btnAuto" onclick="doAuto()">🤖 全自动</button>
+      <button class="btn" id="btnCheckin" onclick="doCheckin()">⚡ 立即签到</button>
+      <button class="btn secondary" onclick="refresh()">↻ 刷新</button>
+    </div>
+  </header>
+  <div class="meta" id="meta">加载中...</div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="logs">
+    <h2>📋 最近执行记录</h2>
+    <div class="log-box" id="logbox">（暂无）</div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let busy = false;
+
+function toast(msg, ms = 3500) {
+  const t = $('#toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', ms);
+}
+
+function fmtDelta(d) {
+  if (d === null || d === undefined) return '';
+  if (d > 0) return `<span class="delta up">▲ +${d}</span>`;
+  if (d < 0) return `<span class="delta down">▼ ${d}</span>`;
+  return `<span class="delta flat">±0</span>`;
+}
+
+function fmtTime(ts) {
+  if (!ts) return '?';
+  const d = new Date(ts * 1000);
+  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function resClass(r) { return (r === 'success' || r === 'already' || r === 'skip') ? 'res-success' : 'res-failed'; }
+
+async function api(url, body) {
+  const opt = body ? { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) } : {};
+  const resp = await fetch(url, opt);
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok || data.ok === false) throw new Error(data.error || ('HTTP ' + resp.status));
+  return data;
+}
+
+async function refresh() {
+  try {
+    const s = await api('/api/status');
+    $('#meta').innerHTML =
+      `<span>📁 ${s.data_dir}</span><span>⏰ 定时任务：${s.schedule}</span><span>🔔 通知：${s.notify_enabled ? '开' : '关'}</span>`;
+    const grid = $('#grid');
+    grid.innerHTML = '';
+    for (const a of s.accounts) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const badge = a.enabled ? '<span class="badge on">启用</span>' : '<span class="badge off">停用</span>';
+      const bal = a.balance !== null && a.balance !== undefined
+        ? `<div class="balance">💰 ${a.balance} 积分${fmtDelta(a.delta ?? a.gained)}</div>
+           <div class="row">记录时间：${a.balance_ts || '—'}</div>`
+        : `<div class="balance">💰 — 积分</div><div class="row">尚未查询积分</div>`;
+      const last = a.last
+        ? `<div class="last">最近：<span class="${resClass(a.last.result)}">${a.last.result}</span> · ${a.last.label} · ${a.last.ts}</div>`
+        : `<div class="last">最近：无记录</div>`;
+      const travel = a.travel
+        ? (a.travel.state === 'idle'
+            ? `<div class="last">🐱 猫猫：空闲，可派出</div>`
+            : (a.travel.state === 'finished' || a.travel.state === 'arrived')
+              ? `<div class="last">🐱 猫猫：<span class="res-success">旅行完成，可收取</span></div>`
+              : `<div class="last">🐱 猫猫：旅行中，到 ${fmtTime(a.travel.arrive_at)} 到达</div>`)
+        : '';
+      card.innerHTML = `
+        <div><span class="name">${a.nickname || a.name}</span>${a.nickname ? `<span class="nick">(${a.name})</span>` : ''}${badge}</div>
+        <div class="row">${a.cred_desc}${a.expires_at ? ` · 有效期至 ${a.expires_at}` : ''}</div>
+        ${bal}${last}${travel}
+        <div class="actions">
+          <button class="btn" onclick="checkinOne('${a.name}')">签到</button>
+          <button class="btn" style="background:#d97706" onclick="travelOne('${a.name}')">🐱 旅行</button>
+          <button class="btn" style="background:#16a34a" onclick="claimOne('${a.name}')">💰 收取</button>
+          <button class="btn secondary" onclick="toggle('${a.name}')">${a.enabled ? '停用' : '启用'}</button>
+          <button class="btn danger" onclick="remove('${a.name}')">删除</button>
+        </div>`;
+      grid.appendChild(card);
+    }
+    // 添加账号卡片
+    const add = document.createElement('div');
+    add.className = 'add-card';
+    add.textContent = '+ 添加账号';
+    add.onclick = addAccount;
+    grid.appendChild(add);
+  } catch (e) {
+    toast('刷新失败：' + e.message);
+  }
+}
+
+async function doCheckin() {
+  if (busy) return;
+  busy = true; const btn = $('#btnCheckin');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>签到中...';
+  toast('正在执行签到，请稍候...', 8000);
+  try {
+    const r = await api('/api/checkin', {});
+    toast('✅ ' + r.text.split('\n').slice(-1)[0], 6000);
+  } catch (e) {
+    toast('签到失败：' + e.message);
+  } finally {
+    busy = false; btn.disabled = false; btn.innerHTML = '⚡ 立即签到';
+    refresh();
+  }
+}
+
+async function checkinOne(name) {
+  try {
+    const r = await api('/api/checkin', { account: name });
+    toast('✅ ' + r.text.split('\n').slice(-1)[0], 5000);
+    refresh();
+  } catch (e) { toast('失败：' + e.message); }
+}
+
+async function travelOne(name) {
+  try {
+    const r = await api('/api/travel', { account: name });
+    toast('🐱 ' + r.text.split('\n').slice(-1)[0], 5000);
+    refresh();
+  } catch (e) { toast('旅行失败：' + e.message); }
+}
+
+async function claimOne(name) {
+  try {
+    const r = await api('/api/travel', { account: name, mode: 'claim' });
+    toast('💰 ' + r.text.split('\n').slice(-1)[0], 5000);
+    refresh();
+  } catch (e) { toast('收取失败：' + e.message); }
+}
+
+async function doAuto() {
+  if (busy) return;
+  busy = true; const btn = $('#btnAuto');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>全自动执行中...';
+  toast('🤖 正在全自动执行（随机延迟 + 签到 + 旅行收取/派出）...', 8000);
+  try {
+    const r = await api('/api/auto', { delay_max_minutes: 2 });
+    const last = r.text.split('\n').slice(-2).join(' ');
+    toast('✅ ' + last, 6000);
+  } catch (e) {
+    toast('全自动失败：' + e.message);
+  } finally {
+    busy = false; btn.disabled = false; btn.innerHTML = '🤖 全自动';
+    refresh();
+  }
+}
+
+async function toggle(name) {
+  try {
+    const r = await api('/api/account/toggle', { name });
+    toast(`已${r.enabled ? '启用' : '停用'} ${name}`);
+    refresh();
+  } catch (e) { toast('操作失败：' + e.message); }
+}
+
+async function remove(name) {
+  if (!confirm(`确定删除账号「${name}」？（将移除凭证备份）`)) return;
+  try {
+    await api('/api/account/remove', { name });
+    toast(`已删除 ${name}`);
+    refresh();
+  } catch (e) { toast('删除失败：' + e.message); }
+}
+
+async function addAccount() {
+  toast('提示：请先在 WorkBuddy 客户端登录目标账号', 4000);
+  const name = prompt('输入账号名（如 account2、pu）：');
+  if (!name || !name.trim()) return;
+  try {
+    const r = await api('/api/account/add', { name: name.trim() });
+    toast(`✅ 已添加 ${r.nickname || r.name}（凭证${r.verified ? '验证通过' : '待确认'}，有效期至 ${r.expires_at || '?'}）`);
+    refresh();
+  } catch (e) { toast('添加失败：' + e.message); }
+}
+
+async function loadLogs() {
+  try {
+    const r = await api('/api/logs');
+    const history = r.history || [];
+    if (!history.length) { $('#logbox').textContent = '（暂无执行记录）'; return; }
+    const lines = history.slice(-15).map(h =>
+      `[${h.ts}] ${h.account} | ${h.label} | ${h.result} | ${(h.detail || '').slice(0, 60)}`);
+    $('#logbox').textContent = lines.join('\n');
+  } catch (e) { /* 忽略 */ }
+}
+
+refresh(); loadLogs();
+setInterval(() => { refresh(); loadLogs(); }, 30000);
+</script>
+</body>
+</html>
