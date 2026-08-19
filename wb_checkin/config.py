@@ -20,7 +20,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "account_interval": [2, 5],
     # 当日去重：当天已成功签到/已领取的账号，本次执行直接跳过（避免重复请求）
     "skip_if_done_today": True,
-    # 每个账号随机取一个 UA（多账号避免相同 UA 指纹）
+    # 每个账号固定分配一个 UA（按账号名确定性选择，同一账号永远相同；可在账号配置中显式指定 ua 覆盖）
     "ua_pool": [
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",

@@ -14,6 +14,7 @@ import json
 import os
 import random
 import time
+import zlib
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from urllib import request as ur
@@ -138,6 +139,14 @@ def run(
 
         executor = CheckinExecutor(api_base=BASE, timeout=20)
         executor.auth_headers = build_auth_headers(cred)
+        # 每个账号固定一个常用 UA（与签到逻辑一致，配置可显式指定 ua）
+        ua = (acc.get("ua") or "").strip()
+        if not ua:
+            pool = cfg.get("ua_pool") or []
+            if pool:
+                ua = pool[zlib.crc32((name or "").encode("utf-8")) % len(pool)]
+        if ua:
+            executor.auth_headers["User-Agent"] = ua
         headers = executor._build_headers()
 
         st = get_status(headers)

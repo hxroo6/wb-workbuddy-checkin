@@ -10,6 +10,7 @@
 import os
 import random
 import time
+import zlib
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -23,6 +24,21 @@ from .credentials import (
 from .executor import CheckinExecutor
 from .logger import append_history, get_logger, read_recent_history
 from .balance import query_total_balance, record_balance
+
+
+def _account_ua(acc: Dict[str, Any], ua_pool: List[str]) -> Optional[str]:
+    """为账号选择一个固定 UA（同账号每次执行相同，不随机切换）。
+
+    优先取账号配置里的显式 ua；未指定时按账号名做确定性散列从 UA 池取一个，
+    保证同一账号永远拿到同一个 UA（更接近真实用户固定浏览器标识的行为）。
+    """
+    ua = (acc.get("ua") or "").strip()
+    if ua:
+        return ua
+    if ua_pool:
+        idx = zlib.crc32((acc.get("name") or "").encode("utf-8")) % len(ua_pool)
+        return ua_pool[idx]
+    return None
 
 
 def _done_today(history_path: str, account_name: str) -> bool:
@@ -124,6 +140,9 @@ def run_all(
             cred = load_account_credential(cfg_manager, acc)
             if cred:
                 executor.auth_headers = build_auth_headers(cred)
+                ua = _account_ua(acc, ua_pool)
+                if ua:
+                    executor.auth_headers["User-Agent"] = ua
                 caller = executor.http_caller()
                 b = query_balance(caller, executor)
                 if b is not None:
@@ -165,8 +184,10 @@ def run_all(
                 ]
             else:
                 auth_headers = build_auth_headers(cred)
-                if ua_pool:
-                    auth_headers["User-Agent"] = random.choice(ua_pool)
+                # 每个账号固定一个常用 UA（同账号永远相同，配置可显式指定 ua）
+                ua = _account_ua(acc, ua_pool)
+                if ua:
+                    auth_headers["User-Agent"] = ua
                 if cred.get("expires_at"):
                     logger.info("  凭证有效期至 %s", cred["expires_at"])
                 executor.auth_headers = auth_headers
