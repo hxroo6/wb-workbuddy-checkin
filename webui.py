@@ -107,6 +107,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.api_toggle_account(body)
             elif path == "/api/account/remove":
                 self.api_remove_account(body)
+            elif path == "/api/account/refresh":
+                self.api_refresh_account(body)
             else:
                 self.send_json({"error": "not found"}, 404)
         except Exception as e:  # 兜底：任何异常返回明确错误
@@ -354,6 +356,94 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "name": removed["name"]})
         except RuntimeError as e:
             self.send_json({"ok": False, "error": str(e)}, 400)
+
+    def api_refresh_account(self, body):
+        """更新账号凭证：用客户端当前登录态覆盖备份 token（相当于 add-account --force）。
+
+        前提：客户端当前登录的必须是目标账号，否则服务端换发的 token 属于别人。
+        """
+        cm = _CM
+        name = (body.get("name") or "").strip()
+        if not name:
+            self.send_json({"ok": False, "error": "缺少账号名"}, 400)
+            return
+        acc = next((a for a in cm.list_accounts() if a["name"] == name), None)
+        if not acc:
+            self.send_json({"ok": False, "error": "账号不存在"}, 404)
+            return
+        # 1) 读取客户端当前登录态
+        client_file = credentials.find_client_auth_file()
+        if not client_file:
+            self.send_json({"ok": False, "error": "未检测到客户端登录态，请先在 WorkBuddy 客户端登录目标账号"}, 400)
+            return
+        try:
+            with open(client_file, "r", encoding="utf-8") as f:
+                client_raw = f.read()
+        except OSError as e:
+            self.send_json({"ok": False, "error": "读取客户端登录态失败：%s" % e}, 500)
+            return
+        client_cred = credentials.read_auth_file(client_file)
+        if not client_cred or not client_cred.get("access_token"):
+            self.send_json({"ok": False, "error": "客户端登录态解析失败"}, 400)
+            return
+        # 2) 校验：客户端登录的必须是目标账号（uid 比对）
+        target_cred = credentials.load_account_credential(cm, acc)
+        if target_cred and target_cred.get("uid") and client_cred.get("uid"):
+            if target_cred["uid"] != client_cred["uid"]:
+                client_nick = client_cred.get("nickname") or client_cred["uid"][:8]
+                self.send_json({
+                    "ok": False,
+                    "error": "客户端当前登录的是「%s」，无法刷新「%s」。请先在客户端切换登录到「%s」再点此按钮"
+                             % (client_nick, name, name),
+                }, 400)
+                return
+        # 3) 覆盖目标账号的凭证备份
+        rel = (acc.get("credential_file") or "").strip()
+        target = os.path.join(cm.tokens_dir, rel if rel else (name + ".info"))
+        os.makedirs(cm.tokens_dir, exist_ok=True)
+        try:
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(client_raw)
+            try:
+                os.chmod(target, 0o600)
+            except OSError:
+                pass
+        except OSError as e:
+            self.send_json({"ok": False, "error": "写入凭证失败：%s" % e}, 500)
+            return
+        # 4) 确保配置指向该备份文件（多账号下固定使用，避免回退到客户端自动检测）
+        cfg = cm.load()
+        changed = False
+        for a in cfg.get("accounts", []):
+            if a["name"] == name:
+                if (a.get("credential_file") or "").strip() != os.path.basename(target):
+                    a["credential_file"] = os.path.basename(target)
+                    a.pop("storage_file", None)
+                    changed = True
+                break
+        if changed:
+            cm.save(cfg)
+        # 5) 验证新凭证
+        new_cred = credentials.read_auth_file(target)
+        ok, reason = credentials.validate_token(new_cred)
+        if not ok:
+            self.send_json({"ok": True, "warning": reason}, 200)
+            return
+        verified = False
+        try:
+            executor = CheckinExecutor(api_base=cfg.get("api_base") or "https://www.codebuddy.cn", timeout=20)
+            executor.auth_headers = credentials.build_auth_headers(new_cred)
+            status, _ = executor.http_caller()("/v2/billing/meter/checkin-status", executor._build_headers())
+            verified = 200 <= status < 300
+        except Exception:
+            verified = False
+        self.send_json({
+            "ok": True,
+            "verified": verified,
+            "message": ("凭证已更新并验证通过（HTTP 200）" if verified else "凭证已写入，但验证未通过，请检查客户端登录态"),
+            "nickname": new_cred.get("nickname", ""),
+            "expires_at": new_cred.get("expires_at"),
+        })
 
     def api_logs(self):
         cm = _CM

@@ -165,6 +165,7 @@ async function refresh() {
           <button class="btn" onclick="checkinOne('${a.name}')">签到</button>
           <button class="btn" style="background:#d97706" onclick="travelOne('${a.name}')">🐱 旅行</button>
           <button class="btn" style="background:#16a34a" onclick="claimOne('${a.name}')">💰 收取</button>
+          <button class="btn" style="background:#2563eb" onclick="refreshCred('${a.name}')">🔄 更新凭证</button>
           <button class="btn secondary" onclick="toggle('${a.name}')">${a.enabled ? '停用' : '启用'}</button>
           <button class="btn danger" onclick="remove('${a.name}')">删除</button>
         </div>`;
@@ -219,6 +220,15 @@ async function claimOne(name) {
     toast('💰 ' + r.text.split('\n').slice(-1)[0], 5000);
     refresh();
   } catch (e) { toast('收取失败：' + e.message); }
+}
+
+async function refreshCred(name) {
+  if (!confirm(`用客户端当前登录态更新「${name}」的凭证？\n（客户端须已登录该账号）`)) return;
+  try {
+    const r = await api('/api/account/refresh', { name });
+    toast(r.warning ? '⚠️ ' + r.warning : ('✅ ' + (r.message || '凭证已更新')), 6000);
+    refresh();
+  } catch (e) { toast('更新失败：' + e.message, 6000); }
 }
 
 async function doAuto() {
