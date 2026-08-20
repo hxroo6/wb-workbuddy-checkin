@@ -59,8 +59,11 @@ def _parse(text: str) -> Dict[str, Any]:
 
 
 def get_status(headers: Dict[str, str]) -> Dict[str, Any]:
-    _, text = _request(headers, STATUS_PATH)
+    status_code, text = _request(headers, STATUS_PATH)
     data = _parse(text)
+    if status_code == 401:
+        # 凭证被服务端拒绝（可能已在客户端重新登录换发新 token）
+        return {"state": "unknown", "error": "凭证无效（HTTP 401），请重新 add-account 刷新凭证"}
     return data.get("data", {}) if data.get("code") in (0, 200) else {}
 
 
@@ -240,8 +243,13 @@ def run(
                         logger.info("  旅行中，还需 %dh%02dm 到达（%s）", hh, mm, datetime.fromtimestamp(arrive_at).strftime("%H:%M"))
                         record.update({"action": "wait", "result": "waiting", "detail": "旅行中，剩余 %dh%02dm" % (hh, mm)})
             else:
-                logger.warning("  未知状态：%s", state)
-                record.update({"action": "unknown", "result": "failed", "detail": "未知状态 %s" % state})
+                err = st.get("error") or ""
+                if err:
+                    logger.warning("  状态查询失败：%s", err)
+                    record.update({"action": "unknown", "result": "failed", "detail": err})
+                else:
+                    logger.warning("  未知状态：%s", state)
+                    record.update({"action": "unknown", "result": "failed", "detail": "未知状态 %s" % state})
         except Exception as e:
             logger.warning("  执行异常：%s: %s", type(e).__name__, e)
             record.update({"action": "error", "result": "failed", "detail": "%s: %s" % (type(e).__name__, e)})
