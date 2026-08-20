@@ -57,7 +57,7 @@ pyinstaller --onefile --name wb-checkin \
 # 产物：dist/wb-checkin.exe，双击即用
 ```
 
-数据目录默认 `~/.wb_checkin`（用户目录，免权限问题）。请从 [GitHub Releases](../../releases) 或官方渠道获取预编译 exe，不要运行来路不明的文件。
+数据目录 = **exe 同级目录下的 `.data`**（整目录可随身携带/迁移；`--data-dir` 可覆盖）。请从 [GitHub Releases](../../releases) 或官方渠道获取预编译 exe，不要运行来路不明的文件。
 
 ## 命令一览
 
