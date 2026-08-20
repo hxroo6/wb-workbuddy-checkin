@@ -85,7 +85,7 @@ h1 { font-size: 22px; display: flex; align-items: center; gap: 8px; }
     <div class="btn-row">
       <button class="btn" id="btnAuto" onclick="doAuto()">🤖 全自动</button>
       <button class="btn" id="btnCheckin" onclick="doCheckin()">⚡ 立即签到</button>
-      <button class="btn secondary" onclick="refresh()">↻ 刷新</button>
+      <button class="btn secondary" onclick="refresh(true)">↻ 刷新</button>
     </div>
   </header>
   <div class="meta" id="meta">加载中...</div>
@@ -132,11 +132,13 @@ async function api(url, body) {
   return data;
 }
 
-async function refresh() {
+async function refresh(showToast = false) {
   try {
+    if (showToast) toast('🔄 刷新中...', 2500);
     const s = await api('/api/status');
+    const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     $('#meta').innerHTML =
-      `<span>📁 ${s.data_dir}</span><span>⏰ 定时任务：${s.schedule}</span><span>🔔 通知：${s.notify_enabled ? '开' : '关'}</span>`;
+      `<span>📁 ${s.data_dir}</span><span>⏰ 定时任务：${s.schedule}</span><span>🔔 通知：${s.notify_enabled ? '开' : '关'}</span><span>🕒 最后刷新：${now}</span>`;
     const grid = $('#grid');
     grid.innerHTML = '';
     for (const a of s.accounts) {
@@ -145,7 +147,7 @@ async function refresh() {
       const badge = a.enabled ? '<span class="badge on">启用</span>' : '<span class="badge off">停用</span>';
       const bal = a.balance !== null && a.balance !== undefined
         ? `<div class="balance">💰 ${a.balance} 积分${fmtDelta(a.delta ?? a.gained)}</div>
-           <div class="row">记录时间：${a.balance_ts || '—'}</div>`
+           <div class="row">积分更新：${a.balance_ts || '—'}</div>`
         : `<div class="balance">💰 — 积分</div><div class="row">尚未查询积分</div>`;
       const last = a.last
         ? `<div class="last">最近：<span class="${resClass(a.last.result)}">${a.last.result}</span> · ${a.last.label} · ${a.last.ts}</div>`
@@ -177,6 +179,7 @@ async function refresh() {
     add.textContent = '+ 添加账号';
     add.onclick = addAccount;
     grid.appendChild(add);
+    if (showToast) toast('✅ 已刷新 ' + now, 2500);
   } catch (e) {
     toast('刷新失败：' + e.message);
   }
