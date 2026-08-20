@@ -11,7 +11,7 @@
 打包后双击 wb-checkin.exe 即可：
     - 自动在 127.0.0.1 选一个空闲端口启动 Web 服务
     - 自动打开默认浏览器
-    - 数据目录默认 ~/.wb_checkin（无需安装 Python，token 凭证模式零第三方依赖）
+    - 数据目录 = exe 同目录下的 .data（无需安装 Python，token 凭证模式零第三方依赖）
 """
 import os
 import socket
@@ -22,6 +22,15 @@ import webbrowser
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
+
+
+def _default_data_dir() -> str:
+    """数据目录：exe（程序）同级目录下的 .data，便于整目录迁移。"""
+    if getattr(sys, "frozen", False):
+        base = os.path.dirname(sys.executable)  # 打包后：exe 所在目录
+    else:
+        base = HERE  # 脚本模式：项目目录
+    return os.path.join(base, ".data")
 
 
 def _find_port(start: int = 8080) -> int:
@@ -47,9 +56,10 @@ def main() -> int:
     import webui
 
     port = _find_port()
+    data_dir = _default_data_dir()
     url = "http://127.0.0.1:%d" % port
     threading.Timer(1.5, _open_browser, args=(url,)).start()
-    return webui.main(["--port", str(port)])
+    return webui.main(["--port", str(port), "--data-dir", data_dir])
 
 
 if __name__ == "__main__":
